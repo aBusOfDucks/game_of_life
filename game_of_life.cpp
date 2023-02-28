@@ -186,8 +186,9 @@ void game_loop(concurrent_manager & concurrent, game_of_life & game)
 }
 
 // Handles keyboard.
-// Changes 'pause' on when space is pressed.
-// Changes 'end_of_game' to false when any other key is pressed.
+// Changes concurrent.pause on when space is pressed.
+// Sets concurrent.restart to true when 'R' is pressed.
+// Sets concurrent.end_of_game to false when any other key is pressed.
 void keyboard_manager(concurrent_manager & concurrent)
 {
 
