@@ -94,6 +94,7 @@ private:
 	std::mutex mut;
 	bool end_of_game = false;
 	bool pause = false;
+	bool restart = false;
 	std::condition_variable cv_pause;
 	
 public:
@@ -117,6 +118,12 @@ public:
 		return pause;
 	}
 	
+	bool get_restart_state()
+	{
+		std::unique_lock<std::mutex> lock(mut);
+		return restart;
+	}
+	
 	bool get_end_of_game_state()
 	{
 		std::unique_lock<std::mutex> lock(mut);
@@ -128,11 +135,24 @@ public:
 		std::unique_lock<std::mutex> lock(mut);
 		cv_pause.wait(lock, [this]{return (!pause || end_of_game);});
 	}
+	
+	void restart_do()
+	{
+		std::unique_lock<std::mutex> lock(mut);
+		restart = true;
+	}
+	
+	void restart_done()
+	{
+		std::unique_lock<std::mutex> lock(mut);
+		restart = false;
+	}
 };
 
 // Runs the game.
-// Stops when pause == true.
-// Ends when end_of_game == true.
+// Stops when concurrent.pause == true.
+// Restarts when concurrent.restart == true.
+// Ends when concurrent.end_of_game == true.
 void game_loop(concurrent_manager & concurrent, game_of_life & game)
 {
 	ALLEGRO_DISPLAY* disp = al_create_display(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE);
@@ -147,9 +167,15 @@ void game_loop(concurrent_manager & concurrent, game_of_life & game)
 			
 		if(concurrent.get_end_of_game_state())
 			run = false;
-			
+		
+		
 		if(run)
 		{
+			if(concurrent.get_restart_state())
+			{
+				game.init();
+				concurrent.restart_done();
+			}
 			game.draw();
 			game.step();
 			usleep(time);
@@ -184,15 +210,21 @@ void keyboard_manager(concurrent_manager & concurrent)
 			
 				al_get_keyboard_state(&state);
 				space = al_key_down(&state, ALLEGRO_KEY_SPACE);
-				
-				if(space)
-					concurrent.change_pause();
-				else
+				switch(event.keyboard.keycode)
 				{
-					concurrent.end_game();
-					run = false;
+					case ALLEGRO_KEY_R:
+						concurrent.restart_do();
+						break;
+					case ALLEGRO_KEY_SPACE:
+						concurrent.change_pause();
+						break;
+					default:
+						concurrent.end_game();
+						run = false;
+						break;
+						
+					
 				}
-				
 				break;
 			
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:

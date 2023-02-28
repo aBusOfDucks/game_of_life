@@ -11,4 +11,5 @@ g++ -pthread game_of_life.cpp $(pkg-config allegro-5 allegro_primitives-5 --libs
 
 When running:
 - press space to pause / unpause;
+- press 'R' to restart the game;
 - press any other key to exit.
