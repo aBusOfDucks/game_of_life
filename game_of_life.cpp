@@ -42,6 +42,7 @@ private:
 	
 	std::mutex mutex_game_states;
 	std::mutex mutex_game_board;
+	std::mutex mutex_draw;
 	bool end_of_game = false;
 	bool pause_state = false;
 	bool restart_state = false;
@@ -181,6 +182,8 @@ public:
 			cell_color = get_cell_color(theme);
 		}
 		
+	//	std::unique_lock<std::mutex> lock(mutex_draw);
+	//	std::cout << "MAM MUT!!!\n";
 		al_clear_to_color(background_color);
 		{
 			std::unique_lock<std::mutex> lock(mutex_game_board);
@@ -189,7 +192,8 @@ public:
 					if(cells[i][j])
 						al_draw_filled_rectangle((i - 1) * CELL_SIZE, (j - 1) * CELL_SIZE, i * CELL_SIZE, j * CELL_SIZE, cell_color);
 		}	
-		
+	//	std::cout << "ODDAJE MUT!!!\n";
+	
 		al_flip_display();
 	}
 	
@@ -270,9 +274,21 @@ public:
 		std::unique_lock<std::mutex> lock(mutex_game_states);
 		theme = x;
 	}
+	
+	void change_cell_state(int x, int y, bool new_state)
+	{
+		int real_x = x / CELL_SIZE + 1;
+		int real_y = y / CELL_SIZE + 1;
+		
+		if(real_x < 1 || real_x > WIDTH)
+			return;
+		if(real_y < 1 || real_y > HEIGHT)
+			return;
+		
+		std::unique_lock<std::mutex> lock(mutex_game_board);
+		cells[real_x][real_y] = new_state;
+	}
 };
-
-
 
 // Runs the game.
 // Makes game steps in loop.
@@ -312,30 +328,48 @@ int get_number(int code)
 // Chaneges game theme when '1', '2', ... or '0' is pressed.
 // Restarts the game when 'R' is pressed.
 // Clears the borad (kills all cells) when 'C' is pressed.
+// Revives cell when left mouse button is pressed or when mouse moved while is was pressed.
+// Kills cell when right mouse button is pressed or when mouse moved while is was pressed.
 // Ends the game when any other key is pressed.
-void keyboard_manager(game_of_life & game)
+void input_manager(game_of_life & game)
 {
 
 	ALLEGRO_TIMER* timer = al_create_timer(1.0 / 30.0);
 	ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
 	al_register_event_source(queue, al_get_keyboard_event_source());
+	al_register_event_source(queue, al_get_mouse_event_source());
 	al_register_event_source(queue, al_get_timer_event_source(timer));
 	ALLEGRO_EVENT event;
 	al_start_timer(timer);
-	ALLEGRO_KEYBOARD_STATE state;
+	bool mouse_button_down = false;
+	bool new_cell_state = false;
 	bool run = true;
 	while(run)
 	{
 		al_wait_for_event(queue, &event);
 		switch(event.type)
 		{
+			case ALLEGRO_EVENT_MOUSE_AXES:
+				if(mouse_button_down)
+					game.change_cell_state(event.mouse.x, event.mouse.y, new_cell_state);
+				break;
+				
+			case ALLEGRO_EVENT_MOUSE_BUTTON_DOWN:
+				mouse_button_down = true;
+				new_cell_state = (event.mouse.button == 1);
+				game.change_cell_state(event.mouse.x, event.mouse.y, new_cell_state);
+				break;
+				
+			case ALLEGRO_EVENT_MOUSE_BUTTON_UP:
+				mouse_button_down = false;
+				break;
+				
 			case ALLEGRO_EVENT_DISPLAY_CLOSE:
 				game.end();
 				run = false;
 				break;
 				
 			case ALLEGRO_EVENT_KEY_DOWN:
-				al_get_keyboard_state(&state);
 				switch(event.keyboard.keycode)
 				{
 					case ALLEGRO_KEY_R:
@@ -372,6 +406,7 @@ void init(game_of_life & game)
 {
 	al_init();
 	al_install_keyboard();
+	al_install_mouse();
 	game.init();
 }
 
@@ -381,7 +416,7 @@ int main()
 	init(game);
 	
 	std::thread loop([&game]{game_loop(game);});
-	std::thread keyboard([&game]{keyboard_manager(game);});
+	std::thread keyboard([&game]{input_manager(game);});
 	
 	keyboard.join();
 	loop.join();
