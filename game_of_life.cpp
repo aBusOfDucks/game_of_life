@@ -40,7 +40,8 @@ private:
 	int background_rainbow_current;
 	int background_rainbow_mode;
 	
-	std::mutex mut;
+	std::mutex mutex_game_states;
+	std::mutex mutex_game_board;
 	bool end_of_game = false;
 	bool pause_state = false;
 	bool restart_state = false;
@@ -139,6 +140,14 @@ private:
 public:
 	game_of_life(){}
 	
+	void reset()
+	{
+		std::unique_lock<std::mutex> lock(mutex_game_board);
+		for(int i = 1; i <= WIDTH; i++)
+			for(int j = 1; j <= HEIGHT; j++)
+				cells[i][j] = (cell_generator(rng) == 1);
+	}
+	
 	// Initiates the board. Fills the array "cells" at random. 
 	void init()
 	{
@@ -158,9 +167,7 @@ public:
 		cell_generator = std::uniform_int_distribution<std::mt19937::result_type>(1, CHANCE);
 		color_generator = std::uniform_int_distribution<std::mt19937::result_type>(0, 255);
 		
-		for(int i = 1; i <= WIDTH; i++)
-			for(int j = 1; j <= HEIGHT; j++)
-				cells[i][j] = (cell_generator(rng) == 1);
+		reset();
 	}
 	
 	// Draws the board.
@@ -169,16 +176,19 @@ public:
 		ALLEGRO_COLOR background_color;
 		ALLEGRO_COLOR cell_color;
 		{
-			std::unique_lock<std::mutex> lock(mut);
+			std::unique_lock<std::mutex> lock(mutex_game_states);
 			background_color = get_background_color(theme);
 			cell_color = get_cell_color(theme);
 		}
 		
 		al_clear_to_color(background_color);
-		for(int i = 1; i <= WIDTH; i++)
-			for(int j = 1; j <= HEIGHT; j++)
-				if(cells[i][j])
-					al_draw_filled_rectangle((i - 1) * CELL_SIZE, (j - 1) * CELL_SIZE, i * CELL_SIZE, j * CELL_SIZE, cell_color);
+		{
+			std::unique_lock<std::mutex> lock(mutex_game_board);
+			for(int i = 1; i <= WIDTH; i++)
+				for(int j = 1; j <= HEIGHT; j++)
+					if(cells[i][j])
+						al_draw_filled_rectangle((i - 1) * CELL_SIZE, (j - 1) * CELL_SIZE, i * CELL_SIZE, j * CELL_SIZE, cell_color);
+		}	
 		
 		al_flip_display();
 	}
@@ -188,15 +198,16 @@ public:
 	// Returns true if game has not ended.
 	bool step()
 	{
+		bool res = false;
 		{
-			std::unique_lock<std::mutex> lock(mut);
+			std::unique_lock<std::mutex> lock(mutex_game_states);
 			if(end_of_game)
 				return false;
 			if(pause_state)
 				return true;
 			if(restart_state)
 			{
-				init();
+				res = true;
 				restart_state = false;
 			}
 			if(clear_state)
@@ -205,6 +216,11 @@ public:
 				clear_state = false;
 			}
 		}
+		
+		if(res)
+			reset();
+		
+		std::unique_lock<std::mutex> lock(mutex_game_board);
 		
 		for(int i = 1; i <= WIDTH; i++)
 		{
@@ -227,31 +243,31 @@ public:
 	
 	void end()
 	{
-		std::unique_lock<std::mutex> lock(mut);
+		std::unique_lock<std::mutex> lock(mutex_game_states);
 		end_of_game = true;
 	}
 	
 	void pause()
 	{
-		std::unique_lock<std::mutex> lock(mut);
+		std::unique_lock<std::mutex> lock(mutex_game_states);
 		pause_state = !pause_state;
 	}
 	
 	void restart()
 	{
-		std::unique_lock<std::mutex> lock(mut);
+		std::unique_lock<std::mutex> lock(mutex_game_states);
 		restart_state = true;
 	}
 	
 	void clear()
 	{
-		std::unique_lock<std::mutex> lock(mut);
+		std::unique_lock<std::mutex> lock(mutex_game_states);
 		clear_state = true;
 	}
 	
 	void set_theme(int x)
 	{
-		std::unique_lock<std::mutex> lock(mut);
+		std::unique_lock<std::mutex> lock(mutex_game_states);
 		theme = x;
 	}
 };
