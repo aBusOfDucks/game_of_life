@@ -13,6 +13,8 @@ When running:
 - press space to pause / unpause;
 - press 'R' to restart the game;
 - press 'C' to clear the board (kill all cells) without ending the game;
+- press left mouse button to revive cell. Drag to revive multiple cells quickly;
+- press right mouse button to kill cell. Drag to kill multiple cells quickly;
 - press '1' - '0' to change theme of the game (colors of background and cells). Predefined themes (cells on background):
 
   1 - white on black;
