@@ -37,4 +37,6 @@ When running:
 
   0 - random on random (changing rapidly);
   
+- pressing alt, shift, ctrl and tab does nothing;
+  
 - press any other key to exit.
