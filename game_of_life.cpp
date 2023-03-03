@@ -330,6 +330,7 @@ int get_number(int code)
 // Clears the borad (kills all cells) when 'C' is pressed.
 // Revives cell when left mouse button is pressed or when mouse moved while is was pressed.
 // Kills cell when right mouse button is pressed or when mouse moved while is was pressed.
+// Alt, shift, ctrl and tab do nothing.
 // Ends the game when any other key is pressed.
 void input_manager(game_of_life & game)
 {
@@ -384,6 +385,15 @@ void input_manager(game_of_life & game)
 						game.clear();
 						break;
 						
+					case ALLEGRO_KEY_TAB:
+					case ALLEGRO_KEY_LSHIFT:
+					case ALLEGRO_KEY_RSHIFT:
+					case ALLEGRO_KEY_LCTRL:
+					case ALLEGRO_KEY_RCTRL:
+					case ALLEGRO_KEY_ALT:
+					case ALLEGRO_KEY_ALTGR:
+						break;
+
 					default:
 						if(is_a_number(event.keyboard.keycode))
 							game.set_theme(get_number(event.keyboard.keycode));
