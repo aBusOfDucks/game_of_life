@@ -4,7 +4,6 @@
 #include <thread>
 #include <condition_variable>
 #include <random>
-#include <iostream>
 
 // Size (in cells) of a board.
 #define WIDTH 80
@@ -182,8 +181,6 @@ public:
 			cell_color = get_cell_color(theme);
 		}
 		
-	//	std::unique_lock<std::mutex> lock(mutex_draw);
-	//	std::cout << "MAM MUT!!!\n";
 		al_clear_to_color(background_color);
 		{
 			std::unique_lock<std::mutex> lock(mutex_game_board);
@@ -192,7 +189,6 @@ public:
 					if(cells[i][j])
 						al_draw_filled_rectangle((i - 1) * CELL_SIZE, (j - 1) * CELL_SIZE, i * CELL_SIZE, j * CELL_SIZE, cell_color);
 		}	
-	//	std::cout << "ODDAJE MUT!!!\n";
 	
 		al_flip_display();
 	}
@@ -203,26 +199,30 @@ public:
 	bool step()
 	{
 		bool res = false;
+		bool calculate = true;
 		{
 			std::unique_lock<std::mutex> lock(mutex_game_states);
-			if(end_of_game)
-				return false;
-			if(pause_state)
-				return true;
-			if(restart_state)
-			{
-				res = true;
-				restart_state = false;
-			}
 			if(clear_state)
 			{
 				clear_board();
 				clear_state = false;
 			}
+			if(end_of_game)
+				return false;
+			if(pause_state)
+				calculate = false;
+			if(restart_state)
+			{
+				res = true;
+				restart_state = false;
+			}
 		}
 		
 		if(res)
 			reset();
+		
+		if(!calculate)
+			return true;
 		
 		std::unique_lock<std::mutex> lock(mutex_game_board);
 		
@@ -295,6 +295,7 @@ public:
 // Ends when game is ended.
 void game_loop(game_of_life & game)
 {
+	al_set_new_display_flags(ALLEGRO_WINDOWED);
 	ALLEGRO_DISPLAY* disp = al_create_display(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE);
 	al_init_primitives_addon();
 	bool run = true;
