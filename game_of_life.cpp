@@ -48,6 +48,10 @@ private:
 	bool clear_state = false;
 	int theme = 1;
 	
+	ALLEGRO_DISPLAY * display;
+	bool display_set = false;
+	std::condition_variable cv_display;
+	
 	int neighbours(int x, int y)
 	{
 		int ans = 0;
@@ -288,6 +292,21 @@ public:
 		std::unique_lock<std::mutex> lock(mutex_game_board);
 		cells[real_x][real_y] = new_state;
 	}
+	
+	void set_display(ALLEGRO_DISPLAY * disp)
+	{
+		std::unique_lock<std::mutex> lock(mutex_game_states);
+		display = disp;
+		display_set = true;
+		cv_display.notify_all();
+	}
+	
+	ALLEGRO_DISPLAY * get_display()
+	{
+		std::unique_lock<std::mutex> lock(mutex_game_states);
+		cv_display.wait(lock, [this]{return display_set;});
+		return display;
+	}
 };
 
 // Runs the game.
@@ -297,6 +316,7 @@ void game_loop(game_of_life & game)
 {
 	al_set_new_display_flags(ALLEGRO_WINDOWED);
 	ALLEGRO_DISPLAY* disp = al_create_display(WIDTH * CELL_SIZE, HEIGHT * CELL_SIZE);
+	game.set_display(disp);
 	al_init_primitives_addon();
 	bool run = true;
 	long long time = 1000000 / SPEED;
@@ -336,13 +356,11 @@ int get_number(int code)
 void input_manager(game_of_life & game)
 {
 
-	ALLEGRO_TIMER* timer = al_create_timer(1.0 / 30.0);
 	ALLEGRO_EVENT_QUEUE* queue = al_create_event_queue();
 	al_register_event_source(queue, al_get_keyboard_event_source());
 	al_register_event_source(queue, al_get_mouse_event_source());
-	al_register_event_source(queue, al_get_timer_event_source(timer));
+	al_register_event_source(queue, al_get_display_event_source(game.get_display()));
 	ALLEGRO_EVENT event;
-	al_start_timer(timer);
 	bool mouse_button_down = false;
 	bool new_cell_state = false;
 	bool run = true;
@@ -408,7 +426,6 @@ void input_manager(game_of_life & game)
 				break;
 		}
 	}
-	al_destroy_timer(timer);
 	al_destroy_event_queue(queue);
 }
 
